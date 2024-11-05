@@ -23,24 +23,23 @@ def E_1_calc(D_1, D_2, f_length, d, theta):
     u_5 = op.rayleigh_sommerfeld.fresnel_approx(u_4, L, wavelength, 2 * d_r)
     return op.rayleigh_sommerfeld.fresnel_approx(u_5, L, wavelength, D_2)
 
-def plot_amplitude_and_phase(U):
-    plt.style.use('dark_background')
-    fig, axis = plt.subplots(1,2)
-
-    intensity = np.abs(U)
-    phase = np.abs(np.angle(U))
-
-    axis[0].imshow(intensity)
-    axis[0].set_title("Intensité")
-
-    axis[1].imshow(phase)
-    axis[1].set_title("Phase")
-
-    scalebar = ScaleBar(dx)
-    plt.gca().add_artist(scalebar)
-
+def plot_int(E):
+    intensity = np.abs(E)**2
+    plt.imshow(intensity)
+    plt.colorbar(label='Intensité (unité)')
+    plt.title('Intensité sur le plan image')
+    plt.xlabel('x (m)')
+    plt.ylabel('y (m)')
     plt.show()
-    return 0
+
+def plot_phase(E):
+    phase = np.angle(E)
+    plt.imshow(phase)
+    plt.colorbar(label='Phase (rad)')
+    plt.title('Phase sur le plan image')
+    plt.xlabel('x (m)')
+    plt.ylabel('y (m)')
+    plt.show()
 
 # Définition des constantes
 L = 5e-3
@@ -50,7 +49,5 @@ wavelength = 800e-9 #Longueur d'onde (m)
 
 # Exécution des fonctions
 E_out = E_0_calc(1,1,0.25,0) + E_1_calc(1,1,0.25,5e-3,0)
-plot_amplitude_and_phase(E_out)
-
-
-
+plot_int(E_out)
+plot_phase(E_out)
