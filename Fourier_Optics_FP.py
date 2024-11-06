@@ -32,7 +32,7 @@ def h_lens(x, y, d_1, d_2, f):
     h_1 = 1j / (wl * d_1) * np.exp(-1j * k * d_1)
     h_2 = 1j / (wl * d_2) * np.exp(-1j * k * d_2)
     phase_factor = np.exp(-1j * np.pi * (x**2 + y**2) / (wl * d_2))
-    rho = np.sqrt(x**2 + y**2)
+    rho = np.sqrt((x/(wl*d_2))**2 + (y/(wl*d_2))**2)
     P1_values, error = quad_vec(lambda r: integrand(r, rho, d_1, d_2, f), 0, ra, limit=100)
     modified_P1_values = P1_values * h_1 * h_2 * phase_factor
     
@@ -57,7 +57,7 @@ def final_signals():
 # Utilisation de la fonction final_signals pour afficher l'intensité du résultat
 def plot_int(E):
     intensity = np.abs(E)**2
-    plt.contourf(x, y, intensity, 100)
+    plt.contourf(X, Y, intensity, 100)
     plt.colorbar(label='Intensité (unité)')
     plt.title('Intensité sur le plan image')
     plt.xlabel('x (m)')
@@ -78,7 +78,7 @@ def plot_phase(E):
 theta = 0               # Angle d'incidence (rad)
 wl = 800e-9             # Longueur d'onde (m)
 k = 2 * np.pi/wl        # Nombre d'onde (m^-1)
-W_0 = 10e-6             # Minimum beam waist (m)
+W_0 = 10e-6              # Minimum beam waist (m)
 d_i_to_M1 = 0.5         # Distance entre l'origine du faisceau et le premier miroir (m)
 d_M2_to_f = 0.5         # Distance entre le deuxième miroir et l'écran (m)
 ra = 12.7e-3            # Rayon de la lentille (miroir courbé)
@@ -93,8 +93,11 @@ x = np.linspace(-L, L, grid_size[0])
 y = np.linspace(-L, L, grid_size[1])
 X, Y = np.meshgrid(x, y)
 
-output_signals = final_signals()
-plot_int(output_signals[2])
+# output_signals = final_signals()
+# plot_int(output_signals[2])
+# plot_phase(output_signals[2])
+
+# plot_int(h_lens(X,Y,d/np.cos(theta),(d+d_M2_to_f)/np.cos(theta),-focal))
 
 # Problème : Différents d_shift donnent différentes solutions (ne devrait pas être le cas) 
 # - Tests différent d_shift:
@@ -103,8 +106,8 @@ if p1 == True:
     d_shifts = [0.025, 0.05, 0.1]
     for n in range(len(d_shifts)):
         d_shift = d_shifts[n]
-        gauss = initial_signal(X, Y, d_i_to_M1 - d_shift)
-        pup = h_lens(X, Y, d_shift, d/np.cos(theta), focal)
+        gauss = initial_signal(X, Y, (d_i_to_M1 - d_shift)/np.cos(theta))
+        pup = h_lens(X, Y, d_shift/np.cos(theta), d/np.cos(theta), focal)
         conv = sp.convolve2d(gauss, pup, 'same')
         plot_int(conv)
 
