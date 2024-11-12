@@ -7,14 +7,13 @@ import matplotlib.pyplot as plt
 # Définition des fonctions
 # Transfromé de Fourier d'un faisceau gaussien
 def Gaussian_beam_FD():
-    E = np.exp(-(X**2 + Y**2) / (2 * W_0**2))
+    E = A_0 * np.exp(-(X**2 + Y**2) / (2 * W_0**2))
     E_FD = fft.fftshift(fft.fft2(E))
     return E_FD
 
 # Calcul de la fonction de transfert de l'espace libre (free space propagation)
 def Transfer_func_FSP(d):
-    args = 1 / wl**2 - FX**2 - FY**2
-    #args = np.clip(args, 0, None)
+    args = np.maximum(1 / wl**2 - (X/(wl * d))**2 - (Y/(wl * d))**2, 0)
     H = np.exp(-1j * 2 * np.pi * np.sqrt(args) * d)
     return H
 
@@ -59,17 +58,15 @@ def E_calc(theta, D, C, abs_G, d):
     # Calculs des fonctions de transferts de chaque chemin
     FD_E_1 = H_in * H_1
     FD_E_2 = H_in * H_2
-
+    
     # Calculs du champ électrique à partir des fonctions de transferts (FFT)
-    E_1 = np.fft.ifft2(fft.ifftshift(FD_E_1))
-    E_2 = np.fft.ifft2(fft.ifftshift(FD_E_2))
-    E_out = E_1 + E_2
+    E_out = np.fft.ifft2(fft.ifftshift(FD_E_1 + FD_E_2))
     return E_out
 
 # Affichage de l'intensité du champ électrique final
 def plot_int(E):
     intensity = np.abs(E)**2
-    plt.contourf(X, Y, intensity, 100, cmap = 'inferno')
+    plt.contourf(X, Y, intensity, 500, cmap = 'inferno')
     plt.colorbar(label='Intensité (unité)')
     plt.title('Intensité sur le plan image')
     plt.xlabel('x (m)')
@@ -79,34 +76,38 @@ def plot_int(E):
 # Affichage de la phase du champ électrique final
 def plot_phase(E):
     phase = np.angle(E)
-    plt.contourf(X, Y, phase, 100, cmap ='inferno')
+    plt.contourf(X, Y, phase, 500, cmap ='inferno')
     plt.colorbar(label='Phase (rad)')
     plt.title('Phase sur le plan image')
     plt.xlabel('x (m)')
     plt.ylabel('y (m)')
     plt.show()
 
+# Affichage de l'intensité du champ électrique final en fonction de x pour une valeur de y donnée
+def plot_int_at_y(E, y_value):
+    intensity = np.abs(E)**2
+    intensity_cross_section = intensity[np.argmin(np.abs(y - y_value)), :]
+    plt.plot(x, intensity_cross_section)
+    plt.xlabel('x (m)')
+    plt.ylabel('Intensity (add units)')
+    plt.grid(True)
+    plt.show()
+
+
 # Définition des constantes
-ang = 0                 # Angle d'incidence (rad)
-wl = 632.8e-9           # Longueur d'onde (m)
-A_0 = 1                 # Intensité du faisceau laser (unité)
-k = 2 * np.pi/wl        # Nombre d'onde (m^-1)
-W_0 = 5e-4              # Minimum beam waist (m)
-L_x = 5e-3              # Largeur du détecteur (m)
-L_y = 5e-3              # Hauteur du détecteur (m)
-grid_size = (2000,2000) # Nombres de points dans le mesh
+wl = 632.8e-9             # Longueur d'onde (m)
+A_0 = 1                   # Intensité du faisceau laser (unité)
+k = 2 * np.pi/wl          # Nombre d'onde (m^-1)
+W_0 = 5e-4                # Minimum beam waist (m)
+L_x = 5e-3                # Largeur du détecteur (m)
+L_y = 5e-3                # Hauteur du détecteur (m)
+grid_size = (2000,2000)   # Nombres de points dans le mesh
 
 # Definition de la plage x,y
 x = np.linspace(-L_x/2, L_x/2, grid_size[0])
 y = np.linspace(-L_y/2, L_y/2, grid_size[1])
 X, Y = np.meshgrid(x, y)
 
-# Définition de la plage de fréquence
-fx = np.fft.fftfreq(grid_size[0], d=(x[1]-x[0]))
-fy = np.fft.fftfreq(grid_size[0], d=(y[1]-y[0]))
-FX, FY = np.meshgrid(fx, fy)
-
 # Utilisation des fonctions
-E_out = E_calc(0, 0.4, 0.1, 0.2, 1e-3)
+E_out = E_calc(0, 0.5, 0.5, 0.5, 1e-3)
 plot_int(E_out)
-plot_phase(E_out)
