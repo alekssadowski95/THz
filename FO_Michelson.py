@@ -5,32 +5,71 @@ import matplotlib.pyplot as plt
 
 # Definition of functions
 # Calculation of the traveled distance (laser to screen) for both paths in the Michelson interferometer
-def Calc_geo(theta, D, C, abs_G, d):
+def Calc_geo(theta, D, C, G, d):
     # Calculation of the relevent positions in the interferometer
-    x_1 = D/(1 - np.tan(theta))
-    y_1 = D * np.tan(theta)/(1 - np.tan(theta))
-    x_2 = (C - y_1) * np.tan(theta) + x_1
-    y_2 = C
-    x_3 = (x_2 * np.tan(theta + np.pi/2) - y_2 - D)/(np.tan(theta + np.pi/2) - 1)
+    theta_pp = -(np.pi/2 - theta - M1_tilt)
+    x_1 = (D + Beam_y_err - Beam_x_err * np.tan(theta)) / (1 - np.tan(theta))
+    y_1 = x_1 - D
+    x_2 = (y_1 + (D + M1_x_err) * np.tan(M1_tilt) - (C + M1_y_err) - x_1 * np.tan(np.pi/2 - theta)) / (np.tan(M1_tilt) - np.tan(np.pi/2 - theta))
+    y_2 = (x_2 - D) * np.tan(M1_tilt) + C + M1_y_err
+    x_3 = (D + y_2 - x_2 * np.tan(theta_pp)) / (1 - np.tan(theta_pp))
     y_3 = x_3 - D
-    x_4 = D + C + d
-    y_4 = (C + d) * np.tan(theta) + y_1
-    x_5 = (x_4 * np.tan(np.pi - theta) - y_4 - D)/(np.tan(np.pi - theta) - 1)
+    x_4 = ((D + C + d + M2_x_err) * np.tan(np.pi/2 - M2_tilt) + Beam_y_err - Beam_x_err * np.tan(theta) + M2_y_err) / (np.tan(np.pi/2 - M2_tilt) - np.tan(theta))
+    y_4 = (x_4 - Beam_x_err) * np.tan(theta) + Beam_y_err
+    x_5 = (y_4 + D + x_4 * np.tan(theta + M2_tilt)) / (1 + np.tan(theta + M2_tilt))
     y_5 = x_5 - D
+    x_fin_1 = ((D + Det_x_err) * np.tan(Det_tilt) + G + y_2 - Det_y_err - x_2 * np.tan(theta_pp)) / (np.tan(Det_tilt) - np.tan(theta_pp))
+    y_fin_1 = (x_fin_1 - (D + Det_x_err)) * np.tan(Det_tilt) - G + Det_y_err
+    x_fin_2 = ((D + Det_x_err) * np.tan(Det_tilt) + G + y_5 - Det_y_err - x_5 * np.tan(np.pi/2 - theta - M2_tilt)) / (np.tan(Det_tilt) - np.tan(np.pi/2 - theta - M2_tilt))
+    y_fin_2 = (x_fin_2 - (D + Det_x_err)) * np.tan(Det_tilt) - G + Det_y_err
+    
+    positions = [[x_1, y_1], [x_2, y_2], [x_3, y_3], [x_4, y_4], [x_5, y_5], [x_fin_1, y_fin_1], [x_fin_2, y_fin_2]]
 
     # Calculation of the distances between each position
-    Pl_1 = x_1/np.cos(theta)
-    Pl_2_1 = (C - y_1)/np.cos(theta)
-    Pl_2_2 = (C + d)/np.cos(theta)
-    Pl_3_1 = (C - y_3)/np.cos(theta)
-    Pl_3_2 = (x_4 - x_5)/np.cos(theta)
-    Pl_4_1 = (y_3 + abs_G)/np.cos(theta)
-    Pl_4_2 = (y_5 + abs_G)/np.cos(theta)
+    d_1 = np.sqrt(x_1**2 + y_1**2)
+    d_2 = np.sqrt((x_2 - x_1)**2 + (y_2 - y_1)**2)
+    d_3 = np.sqrt((x_3 - x_2)**2 + (y_3 - y_2)**2)
+    d_fin_1 = np.sqrt((x_fin_1 - x_3)**2 + (y_fin_1 - y_3)**2)
+    d_4 = np.sqrt((x_4 - x_1)**2 + (y_4 - y_1)**2)
+    d_5 = np.sqrt((x_5 - x_4)**2 + (y_5 - y_4)**2)
+    d_fin_2 = np.sqrt((x_fin_2 - x_5)**2 + (y_fin_2 - y_5)**2)
 
     # Calculation of the length of both optical paths
-    path_1 = Pl_1 + Pl_2_1 + Pl_3_1 + Pl_4_1
-    path_2 = Pl_1 + Pl_2_2 + Pl_3_2 + Pl_4_2
-    return path_1, path_2
+    path_1 = d_1 + d_2 + d_3 + d_fin_1
+    path_2 = d_1 + d_4 + d_5 + d_fin_2
+    return path_1, path_2, positions
+
+# Displays a cartoon representation of the otpical system
+def plot_geo(theta, D, C, abs_G, d):
+    [_,_,pos_2] = Calc_geo(theta, D, C, abs_G, d)
+    x_BS = np.linspace(D - D/4, D + D/4, 10)
+    y_BS = x_BS - D
+    x_Det = np.linspace((D - D/4) + Det_x_err, (D + D/4) + Det_x_err, 10)
+    y_Det = (x_Det - D) * np.tan(Det_tilt) - abs_G + Det_y_err
+    x_M1 = np.linspace((D - D/4) + M1_x_err, (D + D/4) + M1_x_err, 10)
+    y_M1 = (x_M1 - D) * np.tan(M1_tilt) + C + M1_y_err
+    y_M2 = np.linspace(-D/4 + M2_y_err, D/4 + M2_y_err, 10)
+    x_M2 = y_M2/np.tan(np.pi/2 - M2_tilt) + (D + C + d) + M2_x_err
+
+    for i in range(len(pos_2)):
+        plt.scatter(pos_2[i][0], pos_2[i][1], color = 'Black')
+    plt.plot([Beam_x_err, pos_2[0][0]], [Beam_y_err, pos_2[0][1]], color = 'Blue')
+    plt.plot([pos_2[0][0], pos_2[1][0]], [pos_2[0][1], pos_2[1][1]], color = 'Blue')
+    plt.plot([pos_2[1][0], pos_2[2][0]], [pos_2[1][1], pos_2[2][1]], color = 'Blue')
+    plt.plot([pos_2[2][0], pos_2[5][0]], [pos_2[2][1], pos_2[5][1]], color = 'Blue')
+
+    plt.plot([Beam_x_err, pos_2[0][0]], [Beam_y_err, pos_2[0][1]], color = 'Blue')
+    plt.plot([pos_2[0][0], pos_2[3][0]], [pos_2[0][1], pos_2[3][1]], color = 'red')
+    plt.plot([pos_2[3][0], pos_2[4][0]], [pos_2[3][1], pos_2[4][1]], color = 'red')
+    plt.plot([pos_2[4][0], pos_2[6][0]], [pos_2[4][1], pos_2[6][1]], color = 'red')
+
+    plt.plot(x_BS, y_BS, color = 'Black', label = 'Beam splitter', linestyle = 'dashed')
+    plt.plot(x_Det, y_Det, color = 'Black', label = 'Detctor')
+    plt.plot(x_M1, y_M1, color = 'Grey', label = 'Mirror 1')
+    plt.plot(x_M2, y_M2, color = 'Green', label = 'Mirror 2')
+    plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left')
+    plt.tight_layout()
+    plt.show()
 
 # Calculation of the output electric field associated with light traveling in one path of 
 # the interferometer (Gaussian beam + free space propagation (d_n))
@@ -45,7 +84,7 @@ def E_n(d_n):
 
 # Calculation of the interference pattern of the interferometer
 def Michelson(theta, D, C, abs_G, d):
-    [d1,d2] = Calc_geo(theta, D, C, abs_G, d)
+    [d1,d2,_] = Calc_geo(theta, D, C, abs_G, d)
     E_out = E_n(d1) + E_n(d2)
     return E_out
 
@@ -117,7 +156,7 @@ def Pattern_vs_angle_GIF(init_angle, fin_angle, nb_frames):
         plt.close()
     
     # Combination of the frames to create the GIF
-    imageio.mimsave('animation.gif', frames, fps = 5)
+    imageio.mimsave('animation.gif', frames, fps = 20)
     print('GIF created successfully!')
 
 # Constants
@@ -135,9 +174,26 @@ x = np.linspace(-L_x/2, L_x/2, grid_size[0])
 y = np.linspace(-L_y/2, L_y/2, grid_size[1])
 X, Y = np.meshgrid(x, y)
 
+# Position error of optical components
+M1_tilt = 0
+M2_tilt = 0
+Det_tilt = 0
+M1_x_err = 0
+M1_y_err = 0
+M2_x_err = 0
+M2_y_err = 0
+Det_x_err = 0
+Det_y_err = 0
+Beam_x_err = 0
+Beam_y_err = 0
+
 # Utilization of the defined functions:
-E_out = Michelson(0, 0.2, 0.1, 0.2, 0.1)
+plot_geo(0.02, 0.2, 0.1, 0.2, 0.1)
+
+E_out = Michelson(0.02, 0.2, 0.1, 0.2, 0.1)
 plot_int(E_out, True)
+
 # plot_int_profile(E_out, 'x', 1e-3)
 # plot_int_profile(E_out, 'y', -2e-3)
-# Pattern_vs_angle_GIF(-0.0002, 0.0002, 50)
+
+# Pattern_vs_angle_GIF(-5e-6, 5e-6, 100)
