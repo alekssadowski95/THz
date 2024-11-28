@@ -39,7 +39,7 @@ def Calc_geo(theta, D, C, G, d):
     path_2 = d_1 + d_4 + d_5 + d_fin_2
     return path_1, path_2, positions
 
-# Displays a cartoon representation of the otpical system
+# Displays a representation of the optical system
 def plot_geo(theta, D, C, abs_G, d):
     [_,_,pos_2] = Calc_geo(theta, D, C, abs_G, d)
     x_BS = np.linspace(D - D/4, D + D/4, 10)
