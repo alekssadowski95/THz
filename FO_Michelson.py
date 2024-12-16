@@ -1,7 +1,8 @@
 # Importation of relevent libraries
-import imageio.v2 as imageio
 import numpy as np
+import imageio.v2 as imageio
 import matplotlib.pyplot as plt
+from scipy.ndimage import map_coordinates
 
 # Definition of functions
 # Calculation of the traveled distance (laser to screen) for both paths in the Michelson interferometer
@@ -18,11 +19,10 @@ def Calc_geo(theta, D, C, G, d):
     y_4 = (x_4 - Beam_x_err) * np.tan(theta) + Beam_y_err
     x_5 = (y_4 + D + x_4 * np.tan(theta + M2_tilt)) / (1 + np.tan(theta + M2_tilt))
     y_5 = x_5 - D
-    x_fin_1 = ((D + Det_x_err) * np.tan(Det_tilt) + G + y_2 - Det_y_err - x_2 * np.tan(theta_pp)) / (np.tan(Det_tilt) - np.tan(theta_pp))
-    y_fin_1 = (x_fin_1 - (D + Det_x_err)) * np.tan(Det_tilt) - G + Det_y_err
-    x_fin_2 = ((D + Det_x_err) * np.tan(Det_tilt) + G + y_5 - Det_y_err - x_5 * np.tan(np.pi/2 - theta - M2_tilt)) / (np.tan(Det_tilt) - np.tan(np.pi/2 - theta - M2_tilt))
-    y_fin_2 = (x_fin_2 - (D + Det_x_err)) * np.tan(Det_tilt) - G + Det_y_err
-    
+    x_fin_1 = ((D + Det_x_err) * np.tan(Det_tilt_y) + G + y_2 - Det_y_err - x_2 * np.tan(theta_pp)) / (np.tan(Det_tilt_y) - np.tan(theta_pp))
+    y_fin_1 = (x_fin_1 - (D + Det_x_err)) * np.tan(Det_tilt_y) - G + Det_y_err
+    x_fin_2 = ((D + Det_x_err) * np.tan(Det_tilt_y) + G + y_5 - Det_y_err - x_5 * np.tan(np.pi/2 - theta - M2_tilt)) / (np.tan(Det_tilt_y) - np.tan(np.pi/2 - theta - M2_tilt))
+    y_fin_2 = (x_fin_2 - (D + Det_x_err)) * np.tan(Det_tilt_y) - G + Det_y_err
     positions = [[x_1, y_1], [x_2, y_2], [x_3, y_3], [x_4, y_4], [x_5, y_5], [x_fin_1, y_fin_1], [x_fin_2, y_fin_2]]
 
     # Calculation of the distances between each position
@@ -45,7 +45,7 @@ def plot_geo(theta, D, C, abs_G, d):
     x_BS = np.linspace(D - D/4, D + D/4, 10)
     y_BS = x_BS - D
     x_Det = np.linspace((D - D/4) + Det_x_err, (D + D/4) + Det_x_err, 10)
-    y_Det = (x_Det - D) * np.tan(Det_tilt) - abs_G + Det_y_err
+    y_Det = (x_Det - D) * np.tan(Det_tilt_y) - abs_G + Det_y_err
     x_M1 = np.linspace((D - D/4) + M1_x_err, (D + D/4) + M1_x_err, 10)
     y_M1 = (x_M1 - D) * np.tan(M1_tilt) + C + M1_y_err
     y_M2 = np.linspace(-D/4 + M2_y_err, D/4 + M2_y_err, 10)
@@ -73,11 +73,12 @@ def plot_geo(theta, D, C, abs_G, d):
 
 # Calculation of the output electric field associated with light traveling in one path of 
 # the interferometer (Gaussian beam + free space propagation (d_n))
-def E_n(d_n):
+def E_n(d_n, r_tilt):
     W_d_n = W_0 * np.sqrt(1 + (d_n / z_R)**2)
     R_d_n = d_n * (1 + (z_R / d_n)**2)
     gouy_phase = np.arctan(d_n/z_R)
-    tot_phase = np.exp(1j * (-k * d_n - k * (X**2 + Y**2)/(2 * R_d_n) + gouy_phase))
+    mirror_phase = 4 * np.pi * X * np.tan(r_tilt) / wl
+    tot_phase = np.exp(1j * (-k * d_n - k * (X**2 + Y**2)/(2 * R_d_n) + gouy_phase + mirror_phase))
     envelope = np.exp(- (X**2 + Y**2) / (W_d_n**2))
     E_n_field = (A_0 * W_0 / W_d_n) * envelope * tot_phase
     return E_n_field
@@ -85,26 +86,53 @@ def E_n(d_n):
 # Calculation of the interference pattern of the interferometer
 def Michelson(theta, D, C, abs_G, d):
     [d1,d2,_] = Calc_geo(theta, D, C, abs_G, d)
-    E_out = E_n(d1) + E_n(d2)
+    E_out = E_n(d1, M1_tilt) + E_n(d2, M2_tilt)
     return E_out
+
+# Modification of the intensity or phase (depends on the input) to take into acount the shifts of the detector
+def Detector_shift(Det_transfo):
+    # Linear shift of the detector
+    X_shifted = X + Det_x_err
+    Y_shifted = Y + Det_y_err
+    Z = np.zeros_like(X)
+
+    # Tilt of the detector around the x-axis and the y-axis
+    Y_tilted_x = Y_shifted * np.cos(Det_tilt_x) - Z * np.sin(Det_tilt_x)
+    Z_tilted_x = Y_shifted * np.sin(Det_tilt_x) + Z * np.cos(Det_tilt_x)
+    X_tilted_x = X_shifted
+    X_tilted_xy = Z_tilted_x * np.sin(Det_tilt_y) + X_tilted_x * np.cos(Det_tilt_y)
+    Y_tilted_xy = Y_tilted_x
+
+    # Interpolate the intensity
+    x_indices = (X_tilted_xy - x[0]) / (x[1] - x[0])
+    y_indices = (Y_tilted_xy - y[0]) / (y[1] - y[0])
+    norm_int_tilted_interp = map_coordinates(Det_transfo, [y_indices, x_indices], order=1, mode='constant', cval=0)
+    return norm_int_tilted_interp
 
 # Plotting normalized intensity
 def plot_int(E, show_cond):
+    # Calculate the intensity at the detector
     intensity = np.abs(E)**2
     norm_int = intensity / np.max(intensity)
-    #plt.figure(figsize=(8,6), dpi=100)
-    plt.imshow(norm_int, extent=[-L_x/2, L_x/2, -L_y/2, L_y/2], 
+    norm_int_tilted = Detector_shift(norm_int)
+
+    # Plot the intensity
+    plt.imshow(norm_int_tilted, extent=[-L_x/2, L_x/2, -L_y/2, L_y/2], 
                origin='lower', cmap='inferno', aspect='auto')
     plt.colorbar(label='Normalized Intensity')
     plt.xlabel('x (m)')
     plt.ylabel('y (m)')
-    if show_cond == True:
+    if show_cond:
         plt.show()
 
 # Plotting phase
 def plot_phase(E, show_cond):
+    # Calculate the phase at the detector
     phase = np.angle(E)
-    plt.imshow(phase, extent=[-L_x/2, L_x/2, -L_y/2, L_y/2], 
+    phase_tilt = Detector_shift(phase)
+
+    # Plot the phase
+    plt.imshow(phase_tilt, extent=[-L_x/2, L_x/2, -L_y/2, L_y/2], 
                origin='lower', cmap='inferno', aspect='auto')
     plt.colorbar(label='Phase (rad)')
     plt.xlabel('x (m)')
@@ -116,16 +144,20 @@ def plot_phase(E, show_cond):
 def plot_int_profile(E, Axis, position):
     plt.figure(figsize=(8, 6))
 
+    # Calculate intensity at the detector
     intensity = np.abs(E)**2
     norm_int = intensity / np.max(intensity)
+    norm_int_tilted = Detector_shift(norm_int)
+
+    # Plot the intensity along the specified axis
     if Axis == 'x':
         index = np.argmin(np.abs(y - position))
-        I_profile = norm_int[index, :]
+        I_profile = norm_int_tilted[index, :]
         plt.title("Intensity profile along the x-axis (y = {} m)".format(y[index]))
         plt.xlabel('x (m)')
     if Axis == 'y':
         index = np.argmin(np.abs(x - position))
-        I_profile = norm_int[:, index]
+        I_profile = norm_int_tilted[:, index]
         plt.title("Intensity profile along the y-axis (x = {} m)".format(x[index]))
         plt.xlabel('y (m)')
 
@@ -133,7 +165,7 @@ def plot_int_profile(E, Axis, position):
     plt.ylabel('Normalized intensity')
     plt.show()
 
-# Creating a GIF of the variation of the interference pattern with respect to the incident angle
+# Creating a GIF of the variation of the interference pattern with respect to the incident angle 
 def Pattern_vs_angle_GIF(init_angle, fin_angle, nb_frames):
     # Definition of the angle range
     angles = np.linspace(init_angle, fin_angle, nb_frames)
@@ -166,7 +198,7 @@ k = 2 * np.pi / wl          # Wavenumber (m^-1)
 W_0 = 1e-4                  # Minimum beam waist (m)
 z_R = np.pi * W_0**2 / wl   # Rayleigh range (m)
 
-# Grid setup
+# Grid
 L_x = 5e-3                  # Horizontal length of the grid (m)
 L_y = 5e-3                  # Vertical length of the grid (m)
 grid_size = (1000, 1000)    # Grid resolution (pixels)
@@ -174,26 +206,28 @@ x = np.linspace(-L_x/2, L_x/2, grid_size[0])
 y = np.linspace(-L_y/2, L_y/2, grid_size[1])
 X, Y = np.meshgrid(x, y)
 
-# Position error of optical components
-M1_tilt = 0
-M2_tilt = 0
-Det_tilt = 0
-M1_x_err = 0
-M1_y_err = 0
-M2_x_err = 0
-M2_y_err = 0
-Det_x_err = 0
-Det_y_err = 0
-Beam_x_err = 0
-Beam_y_err = 0
+# Position error of optical components (The system's coorinate system and the detector's coordinate system are 
+# used here. The use of both at the same time works here but it would be nice to use only one coordinate system
+# in a future version of the code.)
+M1_tilt = 0      # Angular error on the M1 mirror placement (rad)
+M2_tilt = 0      # Angular error on the M2 mirror placement (rad)
+Det_tilt_x = 0   # Angular error on the detector placement (rad) (around the x axis of the detector coordinate system)
+Det_tilt_y = 0   # Angular error on the detector placement (rad) (around the y axis of the detector coordinate system)
+M1_x_err = 0     # Linear (x-direction (system's coordinate system)) error on the M1 mirror placement (m)
+M1_y_err = 0     # Linear (y-direction (system's coordinate system)) error on the M1 mirror placement (m)
+M2_x_err = 0     # Linear (x-direction (system's coordinate system)) error on the M2 mirror placement (m)
+M2_y_err = 0     # Linear (y-direction (system's coordinate system)) error on the M2 mirror placement (m)
+Det_x_err = 0    # Linear (x-direction (Detector's coordinate system)) error on the detector placement (m)
+Det_y_err = 0    # Linear (y-direction (Detector's coordinate system)) error on the detector placement (m)
+Beam_x_err = 0   # Linear (x-direction (system's coordinate system)) error on the beam placement (m)
+Beam_y_err = 0   # Linear (y-direction (system's coordinate system)) error on the beam placement (m)
 
 # Utilization of the defined functions:
 plot_geo(0.02, 0.2, 0.1, 0.2, 0.1)
-
 E_out = Michelson(0.02, 0.2, 0.1, 0.2, 0.1)
 plot_int(E_out, True)
-
-# plot_int_profile(E_out, 'x', 1e-3)
-# plot_int_profile(E_out, 'y', -2e-3)
+plot_phase(E_out, True)
+plot_int_profile(E_out, 'x', 1e-3)
+plot_int_profile(E_out, 'y', -2e-3)
 
 # Pattern_vs_angle_GIF(-5e-6, 5e-6, 100)
