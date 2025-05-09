@@ -2,11 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Definition of functions
-
 # Calculates the THz beam size considering that the initial beam waist is w0 and that the propagation distance is z
 def calculate_thz_beam_size(w0, z, lambda_thz):
     k_THz = 2 * np.pi / lambda_thz
-    if k_THz * w0 / 2 > 5:
+    if k_THz * w0 / 2 > 10:
         z_diff = (np.pi * w0**2) / lambda_thz
     else:
         z_diff = (2 * np.pi**2 * w0**3) / lambda_thz**2
@@ -53,15 +52,15 @@ def optimize_w_0(lambda_thz_list, lambda_IR, z_mirror, r_mirror, w_l, efficiency
     plt.show()
 
 # Definitions of parameters
-lambda_thz_list = [60e-6, 75e-6, 100e-6, 150e-6, 300e-6]    # List of tested 'THz' wavelengths (m)
+lambda_thz_list = [60e-6 , 75e-6, 100e-6, 150e-6, 300e-6]   # List of tested 'THz' wavelengths (m)
 lambda_IR = 800e-9                                          # Wavelength of the IR laser (m)
 z_mirror = 15.0e-3                                          # Distance from the center of the generation crystal to the OAPM (m)
 r_mirror = 6.35e-3                                          # Radius of the OAPM (m)
 w_l = 11.0e-3                                               # Width of the focused IR laser beam (m)
 efficiency_threshold = 95                                   # Minimum efficiency threshold
 w0_start = 1e-6                                             # Start of the tested beam waists (m)
-w0_end = 10.0e-3                                            # End of the tested beam waists (m)
-nb_of_points = 10000                                        # Number of points used for the calculation
+w0_end = 1e-1                                               # End of the tested beam waists (m)
+nb_of_points = 100000                                       # Number of points used for the calculation
 
 # Utilization of functions
 optimize_w_0(lambda_thz_list, lambda_IR, z_mirror, r_mirror, w_l, efficiency_threshold, w0_start, w0_end, nb_of_points)
